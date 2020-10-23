@@ -1,0 +1,562 @@
+{% extends 'base.html' %}
+
+{% block title %}{% trans "Assign Teacher Class" %}{% endblock title %}
+
+{% block content %}
+
+     {% block bottom_head %}
+          <link rel="stylesheet" href="{% static 'assets/css/dataTables.bootstrap4.css' %}">
+          <link rel="stylesheet" href="{% static 'assets/css/multiselect/bootstrap-select.min.css' %}">
+          <link rel="stylesheet" href="{% static 'assets/css/multiselect/select2.min.css' %}">
+          <script src="{% static 'assets/js/jquery-3.2.1.min.js' %}"></script>
+          <script src="{% static 'assets/js/sweetalert2@9.js' %}"></script>
+     {% endblock bottom_head %}
+
+     <div class="page-wrapper"><!-- Page wrapper  -->
+          <div class="container-fluid"><!-- Container fluid  -->
+            <div class="row m-t-10">
+                <div class="col">
+
+                    <div class="card">
+                        <div class="card-header">{% trans "Assign Teacher Class" %}</div>
+
+                        <div class="card-title">
+                            <div class="messages" id="sweet-alert">
+                                {% if messages %}
+                                    {% for message in messages %}
+                                        {% if message.level == DEFAULT_MESSAGE_LEVELS.INFO %}
+                                            <script>
+                                                Swal.fire({
+                                                    position: 'top-center',
+                                                    icon: 'success',
+                                                    title: "{% trans 'Your work has been OK' %}",
+                                                    html: "<span class='ct-label-title'>{{ message }}</span>",
+                                                    showConfirmButton: false,
+                                                    timer: 3500
+                                                })
+                                            </script>
+                                        {% elif message.level == DEFAULT_MESSAGE_LEVELS.ERROR %} 
+                                            <script>
+                                                Swal.fire({
+                                                    position: 'top-center',
+                                                    icon: 'error',
+                                                    title: 'Oops...',
+                                                    html: "<span class='ct-label-title'>{{ message }}</span>"
+                                                });
+                                            </script>
+                                        {% elif message.level == DEFAULT_MESSAGE_LEVELS.WARNING %} 
+                                            <script>
+                                                Swal.fire({
+                                                    position: 'top-center',
+                                                    icon: 'error',
+                                                    title: 'Oops...',
+                                                    html: "<span class='ct-label-title'>{{ message }}</span>"
+                                                });
+                                            </script>
+                                        {% endif %}
+                                    {% endfor %}   
+                                {% endif %}
+
+                                {% if  not Last_Semester%}
+                                    <script>
+                                        Swal.fire({
+                                            icon: 'error',
+                                            title: 'Oops...',
+                                            html: '',
+                                            text: "{% trans 'Term definition not found. Firstly, the Term definition must be made.' %}",
+                                            }).then(function (result) {
+                                                if (true) {
+                                                    window.location = "{% url 'Create-Semester' %}";
+                                                }
+                                        })
+                                    </script>
+                                {% elif  not Class_List %}
+                                    <script>
+                                        Swal.fire({
+                                            icon: 'error',
+                                            title: 'Oops...',
+                                            html: '',
+                                            text: "{% trans 'Class definition not found. Firstly, the Class definition must be made.' %}",
+                                            }).then(function (result) {
+                                                if (true) {
+                                                    window.location = "{% url 'Create-Classes' %}";
+                                                }
+                                        })
+                                    </script>
+                                {% endif %}
+
+                            </div>
+
+                            <div class="row no-gutters">
+                                <div class="col">
+                                    <div class="btn-group m-t-15 ct-label-min-title">
+                                        <form method='GET'>
+                                            {% csrf_token %}
+                                            <select id='class_uuid' class="selectpicker"  data-style="btn-info btn-outline-info" name='class_uuid' data-live-search="true">
+                                                <option class='text-navy' selected="selected" disabled>{% trans 'Select Class' %}</option>
+                                                {% for class in Class_List %}
+                                                    <option  class='text-navy'  value="{{ class.uuid }}"><b> > </b>{{ class.class_year}}{% trans class.class_name %} {% if class.class_year > 8 %} / {{class.class_branch}}{% endif %}</option>    
+                                                {% endfor %}
+                                            </select>
+                                        </form>
+                                    </div>  
+                                </div>
+                            </div>   
+                        </div>
+
+                        <div class="card-body">
+                            <div class="row" id="form-important">
+                                <div class="col-3 mt-5 p-1">
+                                    {%if Class_Object%}
+                                        <div class="card">
+                                            <div class="card-body" id="card-body-important">
+                                                {%if not Course_Object%}
+                                                    <form method='GET' id="form-course"> 
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="class_uuid" value="{{Class_Object.uuid}}">
+                                                        <div class="form-group m-b-15">
+                                                            <label class='ct-label-title nopadding'> {% trans 'Course' %}</label>
+                                                            <select class="form-control ct-label-min-title" style="width: 100%" id="Course_Object" name="Course_uuid"  data-live-search="true" onchange="course_select()">
+                                                                <option  selected="selected" disabled>{% trans '-----' %}</option>
+                                                                {% for Course in Course_in_Class %} 
+                                                                    <option value="{{ Course.uuid }}">{{ Course.course_code }} {% if request.LANGUAGE_CODE == "tr" %} {{ Course.course_local_name }} {%else%} {{ Course.course_foreign_name }} {%endif%}</option>
+                                                                {% endfor %}
+                                                            </select>
+                                                        </div>                                                       
+                                                    </form>
+                                                {%else%}
+                                                    <form role="form" method="POST" id="form-student-important">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="action" value="save">
+                                                        <input type="hidden" name='teacher_class' value={{Class_Object.uuid}}>
+                                                        <input type="hidden" name="teacher_course" value="{{ Course_Object.uuid}}">
+                                                        <input type="hidden" name='class_uuid' value={{Class_Object.uuid}}>                                                      
+
+                                                        <div class="form-group m-b-15">
+                                                            <label class='ct-label-title nopadding'> {% trans 'Course' %}</label><br>
+                                                            <label class='form-control ct-label-min-title' style='display: block'>{{ Course_Object.course_code}} -  {% if request.LANGUAGE_CODE == "tr" %}{{Course_Object.course_local_name}}{%else%}{{Course_Object.course_foreign_name}}{%endif%}</label>
+                                                        </div>
+
+                                                        <div class="form-group m-b-15">
+                                                            <label class='ct-label-title nopadding'> {% trans 'Teacher' %} </label>
+                                                            <select class="form-control ct-label-min-title" style="width: 100%" id="teacher" name="teacher">
+                                                                <option value="" selected disabled>---------</option>
+                                                                {% for Staff in Course_Teachers %}
+                                                                    <option value="{{ Staff.uuid }}">{{ Staff.name }} {{ Staff.surname }}</option>
+                                                                {%endfor%}
+                                                            </select>
+                                                        </div>
+
+                                                        <div class="form-group nopadding">
+                                                                {%for Non_Selected_Student in Non_Selected_Students%}    
+                                                                    <input type="checkbox" name="teacher_students" value="{{ Non_Selected_Student.uuid}}" class="check" checked>
+                                                                    <label  class="ct-label-min-title p-1">{{ Non_Selected_Student.std_no}} {{ Non_Selected_Student.name}} {{ Non_Selected_Student.surname}}</label><br>
+                                                                {%endfor%}
+                                                        </div> 
+                                                        
+                                            
+                                                        <div class="button-box m-t-20">
+                                                            <div class="row">
+                                                                <div class="col-lg-11 text-center  p-1">
+                                                                    <button type="submit" id='save' class="btn btn-rounded  btn-sm btn-outline-info" onclick="save_button()"><i class="fa fa-check"> </i> {% trans "Save" %}</button>
+                                                                    <button type="cancel" name='cancel' value='cancel' class="btn btn-rounded  btn-sm btn-outline-warning" onclick="cancel_button()" > <i class="fas fa-undo-alt"> </i> {% trans "Cancel" %}</button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                    </form>
+                                                {%endif%}
+                                            </div>
+                                        </div>
+                                    {%endif%}
+                                </div>
+
+                                <div class="col-9 p-1">
+                                    <table id="staf" class="display nowrap table table-hover table-striped table-bordered" cellspacing="0" width="100%" data-toggle-column="first" data-order='[[ 1, "asc" ]]'  data-empty="{% trans 'No record found' %}">
+                                        <thead>
+                                            <tr><th class='ct-label-big-title text-center' colspan=10>{{ Class_Object.class_year}}{{Class_Object.class_name}} {% if Class_Object.class_year > 8 %} / {{Class_Object.class_branch}}{% endif %}   /  {% trans 'Teacher List' %} </th></tr>
+                                            
+                                            <tr  class='ct-label-title text-center'>
+                                                
+                                                <th class=text-center>{% trans 'Photo' %}</th>
+                                                <th>{% trans 'Name' %}</th>
+                                                <th>{% trans 'Surname' %}</th>
+                                                <th>{% trans 'Course' %}</th>
+                                                <th>{% trans 'Students' %}</th>
+                                                <th>{% trans 'Edit' %}</th>
+                                                <th>{% trans 'Remove' %}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for Teacher_Class in Teacher_Class_List %}
+                                                <tr>
+                                                    <td class='ct-label-title text-center'>
+
+                                                        {% if Teacher_Class.teacher.photo%}
+                                                            <img width='50' height='50' src="/media/{{ Teacher_Class.teacher.photo }}">
+                                                        {% else %}
+                                                            {% if Teacher_Class.teacher.gender == 1 %}
+                                                                <img  src="{% static 'assets/images/user_male.png' %}" alt="" height="50" width="50">
+                                                            {% else %}
+                                                                <img src="{% static 'assets/images/user_female.png' %}" alt="" height="50" width="50">
+                                                            {% endif %}
+                                                        {% endif %}
+                                                    </td>
+                                                    <td class='ct-label-title text-center'>{{Teacher_Class.teacher.name}}</td>
+                                                    <td class='ct-label-title text-center'>{{Teacher_Class.teacher.surname}}</td>
+                                                    <td class='ct-label-title text-center'>
+                                                        {{Teacher_Class.teacher_course.course_code}}  
+                                                        {% if request.LANGUAGE_CODE == "tr" %} 
+                                                            {{Teacher_Class.teacher_course.local_name}}
+                                                        {% else %}
+                                                            {{Teacher_Class.teacher_course.foreign_name}}
+                                                        {% endif %}
+                                                    </td>
+                                                    <td class='ct-label-min-title text-center'>{% for student in Teacher_Class.teacher_students.all %} {{ student.std_no }} - {{ student.name }} {{student.surname}} <br> {% endfor %}</td>    
+                                                    
+                                                    <td class='style="display: table-cell;" text-center '>
+                                                        <button type="button" data-toggle="modal" class="btn btn-success btn-sm footable-edit" data-target="#edit-teacherdata{{forloop.counter0}}"><span class="fas fa-pencil-alt" aria-hidden="true"></span></button>
+                                                        <div id="edit-teacherdata{{forloop.counter0}}"  class="modal fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true" style="display: none;">
+                                                            <div class="modal-dialog modal-lg">
+                                                                 <div class="modal-content">
+                                                                      <div class="modal-header">
+                                                                           <h4 class="ct-label-title" style='color:blue'> {% trans 'Edit Teacher Class' %} </h4>
+                                                                           <button type="button" class="btn btn-dark btn-sm ti-close close" data-dismiss="modal" aria-hidden="true"></button>
+                                                                      </div>
+                                                                      <div class="modal-body">
+                                                                        <form method="POST" id="update-form">
+                                                                            {% csrf_token %}
+                                                                            <input type="hidden" name="action" value="update">
+                                                                            <input type="hidden" name="edit_uuid" value="{{ Teacher_Class.uuid}}">
+                                                                            <input type="hidden" name="class_uuid" value="{{Class_Object.uuid}}">
+
+                                                                            <div class="row">
+                                                                                <div class="col-1"></div>
+                                                                                
+                                                                                <div class="col-3">
+                                                                                    <input type="text" class='form-control ct-label-title' value="{{ Class_Object.class_year}}{{Class_Object.class_name}} {% if Class_Object.class_year > 8 %} / {{Class_Object.class_branch}}{% endif %}" readonly>
+                                                                                    <input type="hidden" name="teacher" value="{{Teacher_Class.teacher.uuid}}">
+                                                                                </div>
+
+                                                                                <div class="col-4">
+                                                                                    <input type="text" class='form-control ct-label-title' value=" {{Teacher_Class.teacher.name}} {{Teacher_Class.teacher.surname}}" readonly>
+                                                                                    <input type="hidden" name='teacher_class' value={{Class_Object.uuid}}>
+                                                                                </div>
+
+                                                                                <div class="col-3">
+                                                                                    <input type="text" class='form-control ct-label-title' value=" {{ Teacher_Class.teacher_course.course_code }} {% if request.LANGUAGE_CODE == 'tr' %} {{ Teacher_Class.teacher_course.course_local_name }} {%else%} {{ Teacher_Class.teacher_course.course_foreign_name }} {%endif%}" readonly>
+                                                                                    <input type="hidden" name='teacher_course' value={{Teacher_Class.teacher_course.uuid}}>
+                                                                                </div>
+
+                                                                                <div class="col-1"></div>
+                                                                            </div>
+
+                                                                            <div class="row m-t-15">
+                                                                                <div class="col-9">
+                                                                                    <div class="content m-t-20">
+                                                                                        <div class="animated fadeIn">
+                                                                                            <select class="selectpicker form-control ct-label-min-data-live-search="true" multiple="multiple" name="teacher_students">
+                                                                                                 {% for student in Class_Student_List%}
+                                                                                                    {% if student.student in Teacher_Class.teacher_students.all %}
+                                                                                                        <option value={{ student.student.uuid}} selected>{{ student.student.name}} {{ student.student.surname}}</option>
+                                                                                                    {%else%}
+                                                                                                        <option value={{ student.student.uuid}}>{{ student.student.name}} {{ student.student.surname}}</option>
+                                                                                                    {%endif%}
+                                                                                                {% endfor %}
+                                                                                            </select>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                                
+                                                                                <div class="col-3 m-t-20">
+                                                                                    <button type="submit" id='update' name='action' value='update' class="btn btn-rounded  btn-sm btn-outline-info" onclick="update_teacher_list()"><i class="fa fa-check"> </i> {% trans 'Update' %}</button>
+                                                                                    <button type="cancel" class="btn btn-rounded  btn-sm btn-outline-warning" data-dismiss="modal"><i class="fas fa-undo-alt"></i>{% trans 'Cancel' %}</button>
+                                                                               </div>
+                                                                            </div>
+                                                                       </form>
+                                                                      </div>
+                                                                 </div>
+                                                            </div>
+                                                       </div>
+                                                    </td>
+
+                                                    <td class='style="display: table-cell;" text-center'>
+                                                        <form method="POST" class="form-delete">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="remove_uuid" value="{{ Teacher_Class.uuid}}">
+                                                            <input type="hidden" name="class_uuid" value="{{Class_Object.uuid}}">
+                                                            <button class="btn btn-danger btn-sm mdi mdi-delete" onclick="mydelete()"><span class="fas fa-delete-alt" aria-hidden="true"></span></button>
+                                                        </form>
+                                                </td>
+
+                                                
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                        
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+          </div><!-- End Container fluid  -->
+     </div><!-- End Page wrapper  -->
+{% endblock content %}
+
+
+
+
+
+{% block bottom_scr %}
+    
+    <script src="{% static 'assets/js/multiselect/bootstrap-select.min.js' %}"></script>
+    <script src="{% static 'assets/js/multiselect/select2.full.min.js' %}"></script>
+     <script src="{% static 'assets/js/datatables/datatables.min.js' %}"></script>
+
+     <script>
+            $(document).ready(function() {
+                $(".select2").select2({
+                    placeholder: "----------",
+                    allowClear: false,
+                    language:{ "noResults" : function () { return "{% trans 'No results found' %}"; }}
+                });
+           });
+           $('.selectpicker').selectpicker({noneSelectedText : "{% trans 'Select Course' %}" });
+          
+            setInterval(function(){
+                $('#staf').DataTable({
+                    dom: 'Bfrtip',
+                    buttons: ['copy', 'csv', 'excel', 'pdf', 'print'],
+                    ordering: true,
+                    retrieve: true,
+                    language: {
+                        {% if request.LANGUAGE_CODE == "tr" %}
+                            search: "Ara",
+                            paginate: {
+                                first:      "İlk",
+                                previous:   "Önceki",
+                                next:       "Sonraki",
+                                last:       "Son"
+                            },
+                        
+                            "info": "_MAX_ kayıt içerisinden  _TOTAL_ kayıt görüntüleniyor",
+                            "infoFiltered": "",
+                            "emptyTable": "Gösterilecek Kayıt Bulunamadı",
+                            "infoEmpty": "Gösterilecek Kayıt Bulunamadı",
+                            "zeroRecords":"Gösterilecek Kayıt Bulunamadı",
+                            // _START_ - Display index of the first record on the current page
+                            // _END_ - Display index of the last record on the current page
+                            // _TOTAL_ - Number of records in the table after filtering
+                            // _MAX_ - Number of records in the table without filtering
+                            // _PAGE_ - Current page number
+                            // _PAGES_ - Total number of pages of data in the table
+                        {% else %}
+                            "info": "Showing _MAX_ records to  _TOTAL_ record",
+                            "infoFiltered": "",
+                            "emptyTable": "No data available in table",
+                            "infoEmpty": "No Records Found",
+                            "zeroRecords":"No matching records found",
+                        {% endif %}
+                    },
+                });
+            }, 300);
+            $('.buttons-copy, .buttons-csv, .buttons-print, .buttons-pdf, .buttons-excel').addClass('btn btn-primary mr-1');
+         
+          var room = 1;
+          function Assigned_fields() {
+              room++;
+              var objTo = document.getElementById('Assigned_fields')
+              var divtest = document.createElement("div");
+              divtest.setAttribute("class", "removeclass" + (room-1));
+              divtest.innerHTML =  '<div class="m-t-10"><div class="form-group"><div class="input-group"><div class="col-1"><input type="text" id="class_year_' + (room-1) + '" class="form-control ct-label-title" value="{{Class_Object.class_year}}" readonly> </div><div class="col-2"><input type="text" id="class_branch_' + (room-1) + '" class="form-control ct-label-title" value="{{Class_Object.class_branch}}" readonly> </div><div class="col-1"><input type="text" id="class_name_' + (room-1) + '" class="form-control ct-label-title" value="{{Class_Object.class_name}}" readonly> </div><div class="col-3"><select id="teacher_' + (room-1) + '" class="form-control ct-label-min-title" style="width: 100%" name="teacher"  required><option value="" selected disabled>---------</option>{% for Staff in Staff_List %} <option value="{{ Staff.uuid }}">{{ Staff.name }} {{ Staff.surname }}</option>{% endfor %}</select></div><div class="col-5"><div class="row"><div class="col-11"><div class="input-group"><select id="course_' + (room-1) + '" class="select2 form-control ct-label-min-title" style="width: 100%" id="optional_[' + (room-1) + ']" multiple="multiple" name="optional[' + (room-1) + ']"  >{% for Class_Optional_Course in Class_Optional_Courses %}<option value="{{ Class_Optional_Course.uuid }}">{{ Class_Optional_Course.course_code }} - {% if request.LANGUAGE_CODE == "tr" %}{{ Class_Optional_Course.course_local_name }}{%else%}{{ Class_Optional_Course.course_foreign_name }}{%endif%}</option>{% endfor %}</select></div></div><div class="col-1"><button class="btn btn-danger btn-sm " type="button" onclick="remove_Assigned_fields(' + (room-1) + ');"> <i class="fa fa-minus"></i> </button></div></div></div></div></div></div></div>';
+              objTo.appendChild(divtest)
+              $(".select2").select2({
+               placeholder: "----------",
+               allowClear: false,
+               language:{ "noResults" : function () { return "{% trans 'No results found' %}"; }}
+           });
+          }
+
+          function remove_Assigned_fields(rid) {
+              $('.removeclass' + rid).remove();
+          }
+          
+            function mydelete(){                                                         
+               event.preventDefault(); // prevent form submit
+               var form = event.target.form; // storing the form
+               swal.fire({
+                   icon: 'warning',
+                   title: "{% trans 'Are you sure?' %}",
+                   text: "{% trans 'Teacher Will Be Unassign to Class' %}",
+                   showCancelButton: true,
+                   confirmButtonColor: '#3085d6',
+                   cancelButtonColor: '#d33',
+                   confirmButtonText:  "{% trans 'Yes' %}",
+                   cancelButtonText:  "{% trans 'No' %}"
+               })
+               .then((result) => {
+                   if (result.value) {
+                        $.ajax({
+                            type:'POST',// type of the form 
+                            data: $('.form-delete').serialize(),  
+                            success: function (data) {
+                                var b = document.getElementById('form-important'); // old data from the <div> element  
+                                var c = document.getElementById('sweet-alert'); 
+                                var htmlObject = $(data); // new data
+                                var a =htmlObject.find("#form-important").html();// get new <div> element 
+                                var d =htmlObject.find("#sweet-alert").html();
+                                b.innerHTML = a;  // insert new <div> element 
+                                $( '.skin-default' ).append(d);
+                                $( '.selectpicker' ).selectpicker( 'refresh' );
+                            }
+                        });
+                   } else {
+                           swal.fire({  
+                               icon: 'info',
+                               title: "{% trans 'Your Record is Safe!' %}",
+                           })
+                   }
+               });
+           }
+
+           $('#save').click(function(){
+                var teachername = document.getElementById("teacher").value;
+            
+                 if (teachername == "" || teachername == null) {
+                      Swal.fire({
+                         position: 'center',
+                          icon: 'error',
+                          title: 'Oops...',
+                          text: '{% trans "You Must Select Teacher" %}',
+                          showConfirmButton: true,
+                        });
+                        return false;
+                   }
+            });
+           
+     </script>
+     
+    <script>
+        jQuery('#class_uuid').change(function() {
+            $.ajax({
+                type:'GET',// type of the form 
+                data: $('#class_uuid').serialize(), // all the  form name 
+                success: function (data) {
+                    var b = document.getElementById('form-important'); // old data from the <div> element  
+                    var htmlObject = $(data); // new data
+                    var a =htmlObject.find("#form-important").html();// get new <div> element 
+                    var d =htmlObject.find("#sweet-alert").html();
+                    $( '.skin-default' ).append(d);
+                        b.innerHTML = a;  // insert new <div> element 
+                        $( '.selectpicker' ).selectpicker( 'refresh' );
+                    }
+                });
+            });
+          
+        function course_select(){
+            event.preventDefault(); 
+            $.ajax({
+                type:'GET',// type of the form 
+                data: $('#form-course').serialize(), // all the  form name 
+                success: function (data) {
+                    var b = document.getElementById('card-body-important'); // old data from the <div> element  
+                    var c = document.getElementById('sweet-alert'); 
+                    var htmlObject = $(data); // new data
+                    var a =htmlObject.find("#card-body-important").html();// get new <div> element 
+                    var d =htmlObject.find("#sweet-alert").html();
+                    b.innerHTML = a;  // insert new <div> element 
+                    $( '.skin-default' ).append(d);
+                }
+            });
+        }
+          
+        function save_button(){
+              event.preventDefault();
+              var teachername = document.getElementById("teacher").value;
+              
+            if (teachername == "" || teachername == null) {
+                Swal.fire({
+                    position: 'center',
+                    icon: 'error',
+                    title: 'Oops...',
+                    text: '{% trans "You Must Select Teacher" %}',
+                    showConfirmButton: true,
+                });
+                    return false;
+                }
+            else{
+                $.ajax({
+                    type:'POST',// type of the form 
+                    data: $('#form-student-important').serialize(), // all the  form name 
+                    success: function (data) {
+                        var b = document.getElementById('form-important'); // old data from the <div> element  
+                        var c = document.getElementById('sweet-alert');   
+                        var htmlObject = $(data); // new data
+                        var a =htmlObject.find("#form-important").html();// get new <div> element
+                        var d =htmlObject.find("#sweet-alert").html();// get new <div> element
+                        b.innerHTML = a;  // insert new <div> element                   
+                        $( '.skin-default' ).append(d);
+                        $( '.selectpicker' ).selectpicker( 'refresh' );
+                    }
+                });      
+            }             
+        }
+          
+        function update_teacher_list(){
+            event.preventDefault(); 
+            form = event.target.form;
+            
+            $.ajax({
+                type:'POST',
+                data: $(form).serialize(),                  
+                success: function (data) {
+                    $('.ti-close').click()
+                    var b = document.getElementById('form-important'); // old data from the <div> element  
+                    var htmlObject = $(data); // new data
+                    var a =htmlObject.find("#form-important").html();// get new <div> element 
+                    var d =htmlObject.find("#sweet-alert").html();
+                    $( '.skin-default' ).append(d);
+                    b.innerHTML = a;  // insert new <div> element 
+                    $( '.selectpicker' ).selectpicker( 'refresh' );
+                    swal.fire({  
+                        icon: 'success',
+                        title: "{% trans 'Your Record has been updated' %}",
+                    })
+                }
+            });
+        }
+        function cancel_button(){
+            event.preventDefault();
+           
+            var s = $('input[name ="action"]').val('');
+            $.ajax({
+                type:'POST',
+                data:$('#form-student-important').serialize(),
+                success:function(data){
+                    var b = document.getElementById('form-important'); // old data from the <div> element  
+                         
+                        var htmlObject = $(data); // new data
+                        var a =htmlObject.find("#form-important").html();// get new <div> element
+                       
+                        b.innerHTML = a;  // insert new <div> element                   
+                      
+                        $( '.selectpicker' ).selectpicker( 'refresh' );
+
+                }
+            });
+            
+        }
+    
+    
+    </script>
+{% endblock bottom_scr %}
+
+
+
+
+                
+  
